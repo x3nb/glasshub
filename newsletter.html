@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Subscribe to ZENZINE</title>
+<!-- Google Fonts for a modern, clean look -->
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;700&display=swap" rel="stylesheet" />
+
+<style>
+body {
+  margin: 0;
+  padding: 0;
+  background: #fff; /* White background */
+  font-family: 'Raleway', sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+/* Askewed shape container with shadow and shading */
+#subscribe-box {
+  background: linear-gradient(135deg, #4B0082, #6A0DAD); /* Deep purple shades */
+  padding: 40px 30px;
+  border-radius: 20px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+  transform: skewY(-6deg) skewX(2deg);
+  max-width: 350px;
+  width: 100%;
+  box-sizing: border-box;
+  position: relative;
+  color: #fff;
+}
+
+#subscribe-box h1 {
+  margin: 0 0 20px 0;
+  font-size: 1.8em;
+  text-align: center;
+  letter-spacing: 1px;
+  font-weight: 700;
+  font-family: 'Raleway', sans-serif;
+  /* Optional: add a subtle text-shadow for depth */
+  text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+#subscribe-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+#subscribe-form input[type="email"] {
+  padding: 12px 15px;
+  border: none;
+  border-radius: 8px;
+  font-size: 1em;
+  outline: none;
+  font-family: 'Raleway', sans-serif;
+  transition: box-shadow 0.2s;
+}
+
+#subscribe-form input[type="email"]:focus {
+  box-shadow: 0 0 10px rgba(107, 13, 173, 0.5);
+}
+
+#subscribe-form button {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  background-color: #3a4e89; /* Cornflower blue accent */
+  color: #fff;
+  font-size: 1em;
+  cursor: pointer;
+  font-family: 'Raleway', sans-serif;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+#subscribe-form button:hover {
+  background-color: #5a68b5;
+  transform: translateY(-2px);
+}
+
+#confirmation {
+  margin-top: 20px;
+  text-align: center;
+  font-size: 1.2em;
+  color: #333;
+  display: none;
+}
+
+@media(max-width: 400px){
+  #subscribe-box {
+    padding: 30px 20px;
+  }
+}
+</style>
+</head>
+<body>
+
+<div id="subscribe-box">
+  <h1>Subscribe to ZENZINE</h1>
+  <form id="subscribe-form" onsubmit="subscribe(event)">
+    <input type="email" id="email" placeholder="Enter your email" required />
+    <button type="submit">Subscribe</button>
+  </form>
+  <div id="confirmation">Thank you for subscribing to the ZENZINE!</div>
+</div>
+
+<script>
+function subscribe(e) {
+  e.preventDefault();
+  const emailInput = document.getElementById('email');
+  const confirmationMsg = document.getElementById('confirmation');
+
+  // Simple validation (browser does basic email validation)
+  if(emailInput.value.trim() === "") {
+    alert("Please enter your email");
+    return;
+  }
+  
+  // Show confirmation message
+  confirmationMsg.style.display = 'block';
+
+  // Optionally, clear the input
+  emailInput.value = '';
+
+  // Here, you could add code to send the email to your backend or mailing list
+  // For now, just show the thank you message
+}
+</script>
+
+</body>
+</html>

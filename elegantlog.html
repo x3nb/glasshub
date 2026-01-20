@@ -129,146 +129,170 @@
       <button id="logout-btn">Logout</button>
     </div>
   </div>
+   <script>
+  const supabase = window.supabase.createClient(
+    "https://hwymepujsvfqjkbullaf.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh3eW1lcHVqc3ZmcWprYnVsbGFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg3MDczOTQsImV4cCI6MjA4NDI4MzM5NH0.V6-Cm331IocSXDqe-v6iAZA3TV1STyEHyQI43lcXU_4"
+  );
 
-  <script>
-    console.log("🚀 Script loaded");
+  const SESSION_TIMEOUT = 30 * 60 * 1000;
+  let sessionTimer = null;
 
-    if (!window.supabase) {
-      document.getElementById("auth-msg").textContent =
-        "❌ Supabase SDK failed to load. Check CDN.";
-      throw new Error("Supabase SDK not loaded");
+  const authScreen = document.getElementById("auth-screen");
+  const app = document.getElementById("app");
+
+  // -----------------------------
+  // GLASS ALERT SYSTEM
+  // -----------------------------
+  function showAlert(title, message) {
+    const modal = document.createElement("div");
+    modal.className = "modal show";
+    modal.innerHTML = `
+      <div class="modal-content">
+        <span class="close-btn" onclick="this.closest('.modal').remove()">×</span>
+        <h2 class="section-header">${title}</h2>
+        <p>${message}</p>
+        <button onclick="this.closest('.modal').remove()">OK</button>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  }
+
+  // -----------------------------
+  // UI TOGGLING
+  // -----------------------------
+  function showApp() {
+    authScreen.classList.add("hidden");
+    app.style.display = "block";
+    startSessionTimer();
+    bindUserActivity();
+  }
+
+  function showAuth() {
+    authScreen.classList.remove("hidden");
+    app.style.display = "none";
+    clearSessionTimer();
+  }
+
+  // -----------------------------
+  // SESSION TIMER
+  // -----------------------------
+  function startSessionTimer() {
+    clearSessionTimer();
+    sessionTimer = setTimeout(() => {
+      logoutUser(true);
+    }, SESSION_TIMEOUT);
+  }
+
+  function clearSessionTimer() {
+    if (sessionTimer) clearTimeout(sessionTimer);
+    sessionTimer = null;
+  }
+
+  function resetSessionTimer() {
+    startSessionTimer();
+  }
+
+  function bindUserActivity() {
+    ["click", "mousemove", "keydown", "scroll", "touchstart"].forEach(evt => {
+      document.addEventListener(evt, resetSessionTimer, { passive: true });
+    });
+  }
+
+  // -----------------------------
+  // AUTH ACTIONS
+  // -----------------------------
+  async function loginUser() {
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value.trim();
+
+    if (!email || !password) {
+      showAlert("Missing Fields", "Please enter both email and password ☕");
+      return;
     }
 
-    const SUPABASE_URL = "https://hwymepujsvfqjkbullaf.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh3eW1lcHVqc3ZmcWprYnVsbGFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg3MDczOTQsImV4cCI6MjA4NDI4MzM5NH0.V6-Cm331IocSXDqe-v6iAZA3TV1STyEHyQI43lcXU_4";
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
 
-    console.log("🔗 Supabase URL:", SUPABASE_URL);
+    if (error) {
+      showAlert("Login Failed", error.message);
+    } else {
+      showAlert("Welcome Back", "You’ve entered the Glass Cyber Café ☕");
+    }
+  }
 
-    const supabase = window.supabase.createClient(
-      SUPABASE_URL,
-      SUPABASE_ANON_KEY
-    );
+  async function signupUser() {
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value.trim();
 
-    const SESSION_TIMEOUT = 30 * 60 * 1000;
-    let sessionTimer = null;
-
-    const authScreen = document.getElementById("auth-screen");
-    const app = document.getElementById("app");
-    const authMsg = document.getElementById("auth-msg");
-
-    function showApp() {
-      console.log("✅ Showing app");
-      authScreen.classList.add("hidden");
-      app.style.display = "block";
-      startSessionTimer();
+    if (!email || !password) {
+      showAlert("Missing Fields", "Please enter both email and password ☕");
+      return;
     }
 
-    function showAuth() {
-      console.log("🔒 Showing auth");
-      authScreen.classList.remove("hidden");
-      app.style.display = "none";
-      clearSessionTimer();
+    const { error } = await supabase.auth.signUp({
+      email,
+      password
+    });
+
+    if (error) {
+      showAlert("Signup Failed", error.message);
+    } else {
+      showAlert(
+        "Almost There",
+        "Check your email to confirm your account 📩"
+      );
     }
+  }
 
-    function startSessionTimer() {
-      clearSessionTimer();
-      sessionTimer = setTimeout(() => {
-        logoutUser(true);
-      }, SESSION_TIMEOUT);
+  async function logoutUser(auto = false) {
+    clearSessionTimer();
+    await supabase.auth.signOut();
+    showAuth();
+
+    if (auto) {
+      showAlert(
+        "Session Ended",
+        "Your café session has expired ☕ Please log in again."
+      );
+    } else {
+      showAlert(
+        "Logged Out",
+        "You’ve gracefully exited the Glass Cyber Café 🌙"
+      );
     }
+  }
 
-    function clearSessionTimer() {
-      if (sessionTimer) clearTimeout(sessionTimer);
-      sessionTimer = null;
-    }
-
-    async function loginUser() {
-      authMsg.textContent = "Logging in…";
-      console.log("🔐 Login clicked");
-
-      const email = document.getElementById("email").value.trim();
-      const password = document.getElementById("password").value;
-
-      if (!email || !password) {
-        authMsg.textContent = "⚠️ Enter email + password";
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        });
-
-        console.log("📨 Login response:", data, error);
-
-        if (error) {
-          authMsg.textContent = "❌ " + error.message;
-        } else {
-          authMsg.textContent = "✅ Logged in!";
-        }
-      } catch (err) {
-        console.error("🔥 Login exception:", err);
-        authMsg.textContent = "🔥 JS Error: " + err.message;
-      }
-    }
-
-    async function signupUser() {
-      authMsg.textContent = "Signing up…";
-      console.log("📝 Signup clicked");
-
-      const email = document.getElementById("email").value.trim();
-      const password = document.getElementById("password").value;
-
-      if (!email || !password) {
-        authMsg.textContent = "⚠️ Enter email + password";
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password
-        });
-
-        console.log("📨 Signup response:", data, error);
-
-        if (error) {
-          authMsg.textContent = "❌ " + error.message;
-        } else {
-          authMsg.textContent =
-            "📧 Check your email to confirm signup.";
-        }
-      } catch (err) {
-        console.error("🔥 Signup exception:", err);
-        authMsg.textContent = "🔥 JS Error: " + err.message;
-      }
-    }
-
-    async function logoutUser(auto = false) {
-      console.log("🚪 Logging out");
-      clearSessionTimer();
-      await supabase.auth.signOut();
+  // -----------------------------
+  // AUTH STATE HANDLING
+  // -----------------------------
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (session) {
+      showApp();
+    } else {
       showAuth();
-      if (auto) alert("☕ Session expired. Please log in again.");
     }
+  });
 
-    supabase.auth.onAuthStateChange((event, session) => {
-      console.log("🔄 Auth state:", event, session);
-      if (session) showApp();
-      else showAuth();
-    });
+  // -----------------------------
+  // BUTTON WIRING
+  // -----------------------------
+  document.getElementById("login-btn").onclick = loginUser;
+  document.getElementById("signup-btn").onclick = signupUser;
+  document.getElementById("logout-btn").onclick = () => logoutUser(false);
 
-    document.getElementById("login-btn").onclick = loginUser;
-    document.getElementById("signup-btn").onclick = signupUser;
-    document.getElementById("logout-btn").onclick = () => logoutUser(false);
-
-    supabase.auth.getSession().then(({ data, error }) => {
-      console.log("📦 Initial session:", data, error);
-      if (data?.session) showApp();
-      else showAuth();
-    });
-  </script>
-
+  // -----------------------------
+  // INITIAL SESSION CHECK
+  // -----------------------------
+  supabase.auth.getSession().then(({ data }) => {
+    if (data.session) {
+      showApp();
+    } else {
+      showAuth();
+    }
+  });
+</script>
 </body>
 </html>

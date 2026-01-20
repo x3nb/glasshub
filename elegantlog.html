@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Punk Zen Temple</title>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Vast+Shadow&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,600&display=swap" rel="stylesheet">
+
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    :root {
+      --ink: #111;
+      --blue: cornflowerblue;
+      --panel: rgba(255, 255, 255, 0.75);
+      --shade: rgba(0, 0, 0, 0.06);
+      --border: rgba(0, 0, 0, 0.15);
+      --blur: blur(14px);
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: #f4f6f8;
+      font-family: 'Press Start 2P', cursive;
+      color: var(--ink);
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .hidden { display: none !important; }
+
+    /* Centered login screen */
+    #auth-screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #f4f6f8;
+      z-index: 100;
+    }
+
+    #auth-box {
+      background: var(--panel);
+      backdrop-filter: var(--blur);
+      padding: 30px;
+      border: 1px solid var(--border);
+      box-shadow: 0 10px 30px var(--shade);
+      text-align: center;
+      width: 320px;
+    }
+
+    #auth-box input {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+      border: 1px solid var(--border);
+      font-family: 'Press Start 2P', cursive;
+      font-size: 0.7rem;
+    }
+
+    #auth-box button {
+      margin-top: 10px;
+      width: 100%;
+      padding: 10px;
+      font-family: 'Press Start 2P', cursive;
+      border: 1px solid var(--blue);
+      background: white;
+      color: var(--blue);
+      cursor: pointer;
+    }
+
+    /* Main app container */
+    #app {
+      display: none;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .container {
+      text-align: center;
+      padding: 30px 20px;
+      max-width: 1200px;
+      margin: auto;
+    }
+
+    .section-header {
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
+      font-size: 2rem;
+      color: var(--blue);
+      margin: 30px 0 15px;
+      text-shadow:
+        0 0 6px rgba(100, 149, 237, 0.35),
+        0 0 18px rgba(100, 149, 237, 0.25);
+    }
+
+    .paper {
+      background: var(--panel);
+      backdrop-filter: var(--blur);
+      border: 1px solid var(--border);
+      padding: 25px;
+      margin: 20px auto;
+      max-width: 800px;
+      box-shadow: 0 10px 30px var(--shade);
+    }
+
+    button {
+      font-family: 'Press Start 2P', cursive;
+      cursor: pointer;
+    }
+
+    #logout-btn {
+      margin-top: 20px;
+      padding: 10px 20px;
+      background: white;
+      color: var(--blue);
+      border: 1px solid var(--blue);
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- LOGIN SCREEN -->
+  <div id="auth-screen">
+    <div id="auth-box">
+      <h2 class="section-header">Enter Café</h2>
+      <input id="email" type="email" placeholder="Email">
+      <input id="password" type="password" placeholder="Password">
+      <button id="login-btn">Login</button>
+      <button id="signup-btn">Signup</button>
+      <p id="auth-msg"></p>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <div id="app">
+    <div class="container">
+      <h2 class="section-header">Punk Zen Temple</h2>
+
+      <div class="paper">
+        You are now inside the Glass Cyber Café ☕
+      </div>
+
+      <button id="logout-btn">Logout</button>
+    </div>
+  </div>
+
+  <script>
+  const supabaseUrl = 'https://hwymepujsvfqjkbullaf.supabase.co'; // <-- replace this
+  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh3eW1lcHVqc3ZmcWprYnVsbGFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg3MDczOTQsImV4cCI6MjA4NDI4MzM5NH0.V6-Cm331IocSXDqe-v6iAZA3TV1STyEHyQI43lcXU_4'; // <-- replace this
+  const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+    );
+
+    const SESSION_TIMEOUT = 30 * 60 * 1000;
+    let sessionTimer = null;
+
+    const authScreen = document.getElementById("auth-screen");
+    const app = document.getElementById("app");
+    const authMsg = document.getElementById("auth-msg");
+
+    function showApp() {
+      authScreen.classList.add("hidden");
+      app.style.display = "block";
+      startSessionTimer();
+      bindUserActivity();
+    }
+
+    function showAuth() {
+      authScreen.classList.remove("hidden");
+      app.style.display = "none";
+      clearSessionTimer();
+    }
+
+    function startSessionTimer() {
+      clearSessionTimer();
+      sessionTimer = setTimeout(() => {
+        logoutUser(true);
+      }, SESSION_TIMEOUT);
+    }
+
+    function clearSessionTimer() {
+      if (sessionTimer) clearTimeout(sessionTimer);
+      sessionTimer = null;
+    }
+
+    function resetSessionTimer() {
+      startSessionTimer();
+    }
+
+    function bindUserActivity() {
+      ["click", "mousemove", "keydown", "scroll", "touchstart"].forEach(evt => {
+        document.addEventListener(evt, resetSessionTimer, { passive: true });
+      });
+    }
+
+    async function loginUser() {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) {
+        authMsg.textContent = error.message;
+      } else {
+        authMsg.textContent = "";
+      }
+    }
+
+    async function signupUser() {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      const { error } = await supabase.auth.signUp({
+        email,
+        password
+      });
+
+      if (error) {
+        authMsg.textContent = error.message;
+      } else {
+        authMsg.textContent = "Check your email to confirm signup.";
+      }
+    }
+
+    async function logoutUser(auto = false) {
+      clearSessionTimer();
+      await supabase.auth.signOut();
+      showAuth();
+      if (auto) alert("☕ Session expired. Please log in again.");
+    }
+
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (session) {
+        showApp();
+      } else {
+        showAuth();
+      }
+    });
+
+    document.getElementById("login-btn").onclick = loginUser;
+    document.getElementById("signup-btn").onclick = signupUser;
+    document.getElementById("logout-btn").onclick = () => logoutUser(false);
+
+    // Initial check
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        showApp();
+      } else {
+        showAuth();
+      }
+    });
+  </script>
+
+</body>
+</html>

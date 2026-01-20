@@ -7,35 +7,23 @@
 
   <!-- Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
-  <link href="https://fonts.googleapis.com/css2?family=Vast+Shadow&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,600&display=swap" rel="stylesheet">
 
-  <!-- Supabase -->
+  <!-- Supabase SDK -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
-    :root {
-      --ink: #111;
-      --blue: cornflowerblue;
-      --panel: rgba(255, 255, 255, 0.75);
-      --shade: rgba(0, 0, 0, 0.06);
-      --border: rgba(0, 0, 0, 0.15);
-      --blur: blur(14px);
-    }
-
     body {
       margin: 0;
       padding: 0;
       background: #f4f6f8;
       font-family: 'Press Start 2P', cursive;
-      color: var(--ink);
       height: 100vh;
       overflow: hidden;
     }
 
     .hidden { display: none !important; }
 
-    /* Centered login screen */
     #auth-screen {
       position: fixed;
       inset: 0;
@@ -47,20 +35,18 @@
     }
 
     #auth-box {
-      background: var(--panel);
-      backdrop-filter: var(--blur);
+      background: rgba(255,255,255,0.85);
       padding: 30px;
-      border: 1px solid var(--border);
-      box-shadow: 0 10px 30px var(--shade);
-      text-align: center;
+      border: 1px solid #ccc;
       width: 320px;
+      text-align: center;
     }
 
     #auth-box input {
       width: 100%;
       padding: 10px;
       margin: 8px 0;
-      border: 1px solid var(--border);
+      border: 1px solid #aaa;
       font-family: 'Press Start 2P', cursive;
       font-size: 0.7rem;
     }
@@ -70,13 +56,20 @@
       width: 100%;
       padding: 10px;
       font-family: 'Press Start 2P', cursive;
-      border: 1px solid var(--blue);
+      border: 1px solid cornflowerblue;
       background: white;
-      color: var(--blue);
+      color: cornflowerblue;
       cursor: pointer;
     }
 
-    /* Main app container */
+    #auth-msg {
+      margin-top: 10px;
+      font-size: 0.6rem;
+      min-height: 1em;
+      color: crimson;
+      white-space: pre-wrap;
+    }
+
     #app {
       display: none;
       height: 100vh;
@@ -94,41 +87,30 @@
       font-family: 'Playfair Display', serif;
       font-style: italic;
       font-size: 2rem;
-      color: var(--blue);
-      margin: 30px 0 15px;
-      text-shadow:
-        0 0 6px rgba(100, 149, 237, 0.35),
-        0 0 18px rgba(100, 149, 237, 0.25);
+      color: cornflowerblue;
     }
 
     .paper {
-      background: var(--panel);
-      backdrop-filter: var(--blur);
-      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.8);
+      border: 1px solid #ccc;
       padding: 25px;
       margin: 20px auto;
       max-width: 800px;
-      box-shadow: 0 10px 30px var(--shade);
-    }
-
-    button {
-      font-family: 'Press Start 2P', cursive;
-      cursor: pointer;
     }
 
     #logout-btn {
       margin-top: 20px;
       padding: 10px 20px;
       background: white;
-      color: var(--blue);
-      border: 1px solid var(--blue);
+      color: cornflowerblue;
+      border: 1px solid cornflowerblue;
+      cursor: pointer;
     }
   </style>
 </head>
 
 <body>
 
-  <!-- LOGIN SCREEN -->
   <div id="auth-screen">
     <div id="auth-box">
       <h2 class="section-header">Enter Café</h2>
@@ -136,27 +118,35 @@
       <input id="password" type="password" placeholder="Password">
       <button id="login-btn">Login</button>
       <button id="signup-btn">Signup</button>
-      <p id="auth-msg"></p>
+      <div id="auth-msg"></div>
     </div>
   </div>
 
-  <!-- MAIN APP -->
   <div id="app">
     <div class="container">
       <h2 class="section-header">Punk Zen Temple</h2>
-
-      <div class="paper">
-        You are now inside the Glass Cyber Café ☕
-      </div>
-
+      <div class="paper">You are now inside the Glass Cyber Café ☕</div>
       <button id="logout-btn">Logout</button>
     </div>
   </div>
 
   <script>
+    console.log("🚀 Script loaded");
+
+    if (!window.supabase) {
+      document.getElementById("auth-msg").textContent =
+        "❌ Supabase SDK failed to load. Check CDN.";
+      throw new Error("Supabase SDK not loaded");
+    }
+
+    const SUPABASE_URL = "YOUR_SUPABASE_URL";
+    const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+
+    console.log("🔗 Supabase URL:", SUPABASE_URL);
+
     const supabase = window.supabase.createClient(
-      "https://hwymepujsvfqjkbullaf.supabase.co",
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh3eW1lcHVqc3ZmcWprYnVsbGFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg3MDczOTQsImV4cCI6MjA4NDI4MzM5NH0.V6-Cm331IocSXDqe-v6iAZA3TV1STyEHyQI43lcXU_4"
+      SUPABASE_URL,
+      SUPABASE_ANON_KEY
     );
 
     const SESSION_TIMEOUT = 30 * 60 * 1000;
@@ -167,13 +157,14 @@
     const authMsg = document.getElementById("auth-msg");
 
     function showApp() {
+      console.log("✅ Showing app");
       authScreen.classList.add("hidden");
       app.style.display = "block";
       startSessionTimer();
-      bindUserActivity();
     }
 
     function showAuth() {
+      console.log("🔒 Showing auth");
       authScreen.classList.remove("hidden");
       app.style.display = "none";
       clearSessionTimer();
@@ -191,49 +182,71 @@
       sessionTimer = null;
     }
 
-    function resetSessionTimer() {
-      startSessionTimer();
-    }
-
-    function bindUserActivity() {
-      ["click", "mousemove", "keydown", "scroll", "touchstart"].forEach(evt => {
-        document.addEventListener(evt, resetSessionTimer, { passive: true });
-      });
-    }
-
     async function loginUser() {
-      const email = document.getElementById("email").value;
+      authMsg.textContent = "Logging in…";
+      console.log("🔐 Login clicked");
+
+      const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value;
 
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
+      if (!email || !password) {
+        authMsg.textContent = "⚠️ Enter email + password";
+        return;
+      }
 
-      if (error) {
-        authMsg.textContent = error.message;
-      } else {
-        authMsg.textContent = "";
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+
+        console.log("📨 Login response:", data, error);
+
+        if (error) {
+          authMsg.textContent = "❌ " + error.message;
+        } else {
+          authMsg.textContent = "✅ Logged in!";
+        }
+      } catch (err) {
+        console.error("🔥 Login exception:", err);
+        authMsg.textContent = "🔥 JS Error: " + err.message;
       }
     }
 
     async function signupUser() {
-      const email = document.getElementById("email").value;
+      authMsg.textContent = "Signing up…";
+      console.log("📝 Signup clicked");
+
+      const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value;
 
-      const { error } = await supabase.auth.signUp({
-        email,
-        password
-      });
+      if (!email || !password) {
+        authMsg.textContent = "⚠️ Enter email + password";
+        return;
+      }
 
-      if (error) {
-        authMsg.textContent = error.message;
-      } else {
-        authMsg.textContent = "Check your email to confirm signup.";
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password
+        });
+
+        console.log("📨 Signup response:", data, error);
+
+        if (error) {
+          authMsg.textContent = "❌ " + error.message;
+        } else {
+          authMsg.textContent =
+            "📧 Check your email to confirm signup.";
+        }
+      } catch (err) {
+        console.error("🔥 Signup exception:", err);
+        authMsg.textContent = "🔥 JS Error: " + err.message;
       }
     }
 
     async function logoutUser(auto = false) {
+      console.log("🚪 Logging out");
       clearSessionTimer();
       await supabase.auth.signOut();
       showAuth();
@@ -241,24 +254,19 @@
     }
 
     supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
-        showApp();
-      } else {
-        showAuth();
-      }
+      console.log("🔄 Auth state:", event, session);
+      if (session) showApp();
+      else showAuth();
     });
 
     document.getElementById("login-btn").onclick = loginUser;
     document.getElementById("signup-btn").onclick = signupUser;
     document.getElementById("logout-btn").onclick = () => logoutUser(false);
 
-    // Initial check
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        showApp();
-      } else {
-        showAuth();
-      }
+    supabase.auth.getSession().then(({ data, error }) => {
+      console.log("📦 Initial session:", data, error);
+      if (data?.session) showApp();
+      else showAuth();
     });
   </script>
 

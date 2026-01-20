@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Paperpunk Cinema</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Vast+Shadow&display=swap" rel="stylesheet" />
+<!-- Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+/* Basic style similar to previous, lighter cinematic aesthetic */
+body {
+  margin: 0; padding: 0;
+  background: #eee;
+  font-family: 'Press Start 2P', cursive;
+  color: #333;
+  overflow: hidden;
+  border: 20px solid #ccc;
+  box-sizing: border-box;
+}
+body::before {
+  content: "";
+  position: fixed;
+  top:0; left:0; right:0; bottom:0;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(255,255,255,0.02),
+    rgba(255,255,255,0.02) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+#bubblesContainer {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+}
+.content {
+  position: relative; z-index: 3;
+  max-width: 900px; margin: auto; padding: 20px; display:flex; flex-direction:column; align-items:center;
+  backdrop-filter: blur(2px);
+}
+#user-avatar { /* ... */ }
+#avatar-img { /* ... */ }
+#avatar-title { /* ... */ }
+#auth-buttons { /* ... */ }
+button { /* ... */ }
+#auth-form { /* ... */ }
+#main-content { /* ... */ }
+#chat-header { font-size:1.4em; margin-bottom:10px; }
+#loading { margin-bottom:10px; }
+#chat { /* ... */ }
+.menu { /* ... */ }
+#synopsis { /* ... */ }
+
+#mantraPanel {
+  margin-top: 20px; width: 100%; max-width: 600px; display:flex; flex-direction:column; align-items: center; background:#fff; padding:10px; border-radius:8px; box-shadow: inset 4px 4px 8px #ccc, inset -4px -4px 8px #eee;
+}
+#mantraInput {
+  width: 70%; padding:8px; border:2px solid #4B0082; border-radius:4px; background:#fff; color:#333; font-family:'Press Start 2P'; font-size:0.8em; margin-bottom:8px;
+}
+#mantraButtons {
+  display:flex; gap:10px; justify-content:center; margin-top:8px;
+}
+#mantraButtons button {
+  padding:8px 12px; background:#4B0082; color:#fff; border:none; border-radius:4px; cursor:pointer; font-family:'Press Start 2P';
+}
+.floating-word {
+  position: absolute;
+  font-family:'Vast Shadow'; font-size:1.5em; color:#f0f;
+  opacity:0.8;
+  white-space:nowrap;
+  pointer-events: none;
+  user-select:none;
+  will-change: transform;
+}
+</style>
+</head>
+<body>
+
+<div class="content">
+  <!-- User info & auth -->
+  <div id="user-avatar">
+    <img id="avatar-img" src="https://placehold.co/100x100/FFFFFF/000000/png?text=🎤" alt="User Avatar" />
+    <div id="avatar-title">Punk Zen</div>
+  </div>
+  <div id="auth-buttons">
+    <button onclick="showSignUp()">Sign Up</button>
+    <button onclick="showSignIn()">Log In</button>
+    <button id="logoutBtn" style="display:none;" onclick="logout()">Log Out</button>
+  </div>
+  <div id="auth-form" style="display:none;">
+    <h2>Welcome to the Punk Tribe</h2>
+    <input type="text" id="signup-username" placeholder="Choose a username" />
+    <input type="email" id="auth-email" placeholder="Email" />
+    <input type="password" id="auth-password" placeholder="Password" />
+    <button onclick="submitAuth()">Submit</button>
+    <button onclick="cancelAuth()">Cancel</button>
+    <div id="signup-message"></div>
+  </div>
+  <!-- Main content after login -->
+  <div id="main-content" style="display:none;">
+    <div id="chat-header">Please log in</div>
+    <div id="loading">Loading...</div>
+    <div id="chat"></div>
+    <div class="menu" id="menu"></div>
+    <div id="synopsis"></div>
+    <!-- Mantra input -->
+    <div id="mantraPanel">
+      <input type="text" id="mantraInput" placeholder="Enter a good word" />
+      <div id="mantraButtons">
+        <button onclick="addMantra()">Add Word</button>
+        <button onclick="pauseMantras()">Pause</button>
+        <button onclick="resumeMantras()">Resume</button>
+        <button onclick="clearMantras()">Clear</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bubbles container for floating words -->
+<div id="bubblesContainer"></div>
+
+<!-- Music controls -->
+<button id="musicIcon" style="display:none;" onclick="toggleMusic()">Music</button>
+<div id="musicDrawer" style="display:none;">
+  <div>Now Playing: <span id="nowPlaying">-</span></div>
+  <button id="music-toggle" onclick="toggleMusic()">Mute</button>
+  <audio id="musicPlayer"></audio>
+</div>
+
+<script>
+const supabaseUrl='https://hwymepujsvfqjkbullaf.supabase.co'; // your URL
+const supabaseKey='your-api-key'; // your API key, replace with your real key
+const supabase=supabase.createClient(supabaseUrl,supabaseKey);
+
+let currentUser=null;
+let username=null;
+let mantraWords=[]; 
+let mantraInterval=null;
+let mantraMax=10; 
+let mantraPaused=false;
+
+// Load user from localStorage if within 24 hours
+const stored=localStorage.getItem('userData');
+if(stored){
+  const data=JSON.parse(stored);
+  if(Date.now() - data.timestamp < 24*3600*1000){
+    currentUser={ id: data.id, email: data.email };
+    fetchAndSetUsername().then(()=>{
+      document.getElementById('auth-buttons').style.display='none';
+      document.getElementById('main-content').style.display='block';
+      document.getElementById('musicIcon').style.display='block';
+      document.getElementById('musicDrawer').style.display='block';
+      updateGreeting();
+      startMantraLoop();
+    });
+  }
+}
+
+// Show auth forms
+function showSignUp(){ showAuthForm('signup'); }
+function showSignIn(){ showAuthForm('signin'); }
+function cancelAuth(){ document.getElementById('auth-form').style.display='none'; document.getElementById('auth-buttons').style.display='flex'; }
+
+function showAuthForm(mode){
+  document.getElementById('auth-form').style.display='flex';
+  document.getElementById('auth-buttons').style.display='none';
+  document.querySelector('#auth-form h2').innerText=mode==='signup'?'Sign Up':'Log In';
+  document.getElementById('signup-message').innerText='';
+  document.getElementById('signup-username').style.display=mode==='signup'?'block':'none';
+}
+
+// Handle submit
+async function submitAuth(){
+  const email=document.getElementById('auth-email').value;
+  const password=document.getElementById('auth-password').value;
+  const usernameInput=document.getElementById('signup-username').value.trim();
+
+  if(!email || !password){ alert('Enter email and password'); return; }
+  if(document.querySelector('#auth-form h2').innerText==='Sign Up' && !usernameInput){ alert('Choose a username'); return; }
+
+  if(document.querySelector('#auth-form h2').innerText==='Sign Up'){
+    // Sign up
+    const { data, error }=await supabase.auth.signUp({ email, password });
+    if(error){ alert(error.message); return; }
+    await supabase.from('profiles').upsert({ id: data.user.id, username: usernameInput });
+    alert('Check your email to confirm your account.');
+    cancelAuth();
+  } else {
+    // Log in
+    const { data, error }=await supabase.auth.signInWithPassword({ email, password });
+    if(error){ alert(error.message); return; }
+    currentUser=data.user;
+    // Save in localStorage
+    localStorage.setItem('userData', JSON.stringify({ id: currentUser.id, email: currentUser.email, timestamp: Date.now() }));
+    // Setup UI
+    document.getElementById('auth-buttons').style.display='none';
+    document.getElementById('main-content').style.display='block';
+    document.getElementById('musicIcon').style.display='block';
+    document.getElementById('musicDrawer').style.display='block';
+    updateGreeting();
+    startMantraLoop();
+    // Hide auth form
+    document.getElementById('auth-form').style.display='none';
+  }
+}
+
+// Fetch username
+async function fetchAndSetUsername(){
+  if(!currentUser) return;
+  const { data }=await supabase.from('profiles').select('username').eq('id',currentUser.id).single();
+  username=data?.username || currentUser.email;
+}
+
+function updateGreeting(){
+  document.getElementById('chat-header').innerText=`Welcome, ${username}!`;
+  document.getElementById('loading').style.display='none';
+  document.getElementById('chat').innerHTML=`<p>Hello ${username}! Welcome to your cinematic paperpunk!</p>`;
+}
+
+function logout(){
+  localStorage.removeItem('userData');
+  currentUser=null;
+  username=null;
+  document.getElementById('auth-buttons').style.display='flex';
+  document.getElementById('main-content').style.display='none';
+  document.getElementById('musicIcon').style.display='none';
+  document.getElementById('musicDrawer').style.display='none';
+  document.getElementById('auth-form').style.display='none';
+  document.getElementById('chat-header').innerText='Please log in';
+  document.getElementById('chat').innerHTML='';
+}
+
+// Menu setup
+const menuItems=[
+  { title:'ABOUT',link:'https://en.wikipedia.org/wiki/Punk_rock',desc:'Learn about punk' },
+  { title:'MUSIC',link:'https://www.punknews.org/',desc:'Discover punk tunes' },
+  { title:'SHOP',link:'https://punkclothing.com/',desc:'Get punk fashion' },
+  { title:'BLOG',link:'https://punkblog.com/',desc:'Read punk stories' }
+];
+const menuDiv=document.getElementById('menu');
+menuItems.forEach(i => {
+  const m=document.createElement('div');
+  m.className='menu-item';
+  m.innerText=i.title;
+  m.onclick=()=>{ document.getElementById('synopsis').innerHTML=`<p>${i.desc}</p><a href="${i.link}" target="_blank" style="color:#eee;">Visit</a>`; }
+  menuDiv.appendChild(m);
+});
+
+// Mantra floating system
+const bubblesContainer=document.getElementById('bubblesContainer');
+let mantraWords=[]; 
+let mantraInterval=null;
+let mantraMax=10; 
+let mantraPaused=false;
+
+function addMantra(){ 
+  const word=document.getElementById('mantraInput').value.trim(); 
+  if(!word){ alert('Enter a word'); return; }
+  if(mantraWords.length>=mantraMax){ alert('Limit reached!'); return; }
+  createFloatingWord(word);
+  mantraWords.push(word);
+  document.getElementById('mantraInput').value='';
+}
+
+function createFloatingWord(text){
+  const el=document.createElement('div');
+  el.className='floating-word';
+  el.innerText=text;
+  // random start position
+  el.style.top=(Math.random()*80)+'%';
+  el.style.left='0%';
+  // organic drift parameters
+  const angle=Math.random()*360;
+  const distance=150+Math.random()*150;
+  const dx=Math.cos(angle*Math.PI/180)*distance+'px';
+  const dy=Math.sin(angle*Math.PI/180)*distance+'px';
+  const rotateDeg=Math.random()*360;
+  el.style.setProperty('--dx',dx);
+  el.style.setProperty('--dy',dy);
+  el.style.setProperty('--rotate',rotateDeg+'deg');
+  bubblesContainer.appendChild(el);
+  animateWord(el);
+}
+
+function animateWord(el){
+  const duration=20000+Math.random()*10000;
+  const animation=el.animate([
+    { transform: 'translate(0,0) rotate(0deg)', opacity:0.8 },
+    { transform: `translate(var(--dx), var(--dy)) rotate(var(--rotate))`, opacity:0 }
+  ], {
+    duration: duration,
+    iterations: 1,
+    easing:'ease-in-out'
+  });
+  animation.onfinish=()=>{ if(el.parentNode) el.parentNode.removeChild(el); }
+}
+
+let mantraIntervalId=null;
+let mantraPaused=false;
+
+function startMantraLoop(){
+  if(mantraIntervalId) clearInterval(mantraIntervalId);
+  mantraIntervalId=setInterval(()=>{
+    if(!mantraPaused && mantraWords.length>0){
+      const count=Math.min(2, mantraWords.length);
+      for(let i=0;i<count;i++){
+        const index=Math.floor(Math.random()*mantraWords.length);
+        createFloatingWord(mantraWords[index]);
+      }
+    }
+  }, 3000);
+}
+function pauseMantras(){ mantraPaused=true; }
+function resumeMantras(){ mantraPaused=false; }
+function clearMantras(){ bubblesContainer.innerHTML=''; mantraWords=[]; }
+
+// Toggle music
+const musicTracks=[
+  'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+  'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+  'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3'
+];
+const musicPlayer=document.getElementById('musicPlayer');
+const nowPlaying=document.getElementById('nowPlaying');
+let currentTrack=0;
+let isPlaying=false;
+
+function toggleMusic(){ 
+  if(isPlaying){ 
+    musicPlayer.pause(); isPlaying=false; document.getElementById('music-toggle').innerText='Unmute'; 
+  } else { 
+    if(currentTrack>=musicTracks.length){ currentTrack=0; }
+    musicPlayer.src=musicTracks[currentTrack]; 
+    musicPlayer.style.display='block'; 
+    musicPlayer.play(); 
+    isPlaying=true; 
+    document.getElementById('music-toggle').innerText='Mute'; 
+    document.getElementById('nowPlaying').innerText='Track ' + (currentTrack+1);
+  } 
+}
+musicPlayer.onended=()=>{
+  currentTrack++;
+  if(currentTrack>=musicTracks.length){
+    isPlaying=false;
+    document.getElementById('nowPlaying').innerText='-';
+  } else {
+    musicPlayer.src=musicTracks[currentTrack];
+    musicPlayer.play();
+    document.getElementById('nowPlaying').innerText='Track ' + (currentTrack+1);
+  }
+};
+
+// On load
+window.onload=function(){
+  // Preload
+  window.tracks=musicTracks;
+  window.musicPlayer=document.getElementById('musicPlayer');
+  window.isPlaying=false;
+  window.currentTrack=0;
+  window.musicPlayer.onended=function(){
+    currentTrack++;
+    if(currentTrack>=tracks.length){
+      isPlaying=false;
+      document.getElementById('nowPlaying').innerText='-';
+    } else {
+      musicPlayer.src=tracks[currentTrack];
+      musicPlayer.play();
+      document.getElementById('nowPlaying').innerText='Track '+(currentTrack+1);
+    }
+  }
+  // Try auto login
+  const saved=localStorage.getItem('userData');
+  if(saved){
+    const data=JSON.parse(saved);
+    if(Date.now() - data.timestamp < 24*3600*1000){
+      currentUser={ id: data.id, email: data.email };
+      fetchAndSetUsername().then(()=>{
+        document.getElementById('auth-buttons').style.display='none';
+        document.getElementById('main-content').style.display='block';
+        document.getElementById('musicIcon').style.display='block';
+        document.getElementById('musicDrawer').style.display='block';
+        updateGreeting();
+        startMantraLoop();
+      });
+    }
+  }
+};
+</script>
+</body>
+</html>

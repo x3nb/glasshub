@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Director's Punk Cut Cinema</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Vast+Shadow&display=swap" rel="stylesheet" />
+<!-- Supabase SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+body {
+  margin: 0; padding: 0; background: #111; /* dark background for cinema */
+  font-family: 'Press Start 2P', cursive;
+  color: #eee;
+  overflow: hidden;
+  /* Cinematic border effect */
+  border: 20px solid #222;
+  box-sizing: border-box;
+}
+
+/* Cinematic overlay for flickering or grain */
+body::before {
+  content: "";
+  position: fixed;
+  top:0; left:0; right:0; bottom:0;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(255,255,255,0.02),
+    rgba(255,255,255,0.02) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+.content {
+  position: relative; z-index: 3;
+  max-width: 900px; margin: auto; padding: 20px; display:flex; flex-direction:column; align-items:center;
+}
+
+/* Cinematic frame border (done on body) */
+
+#user-avatar {
+  display:flex; flex-direction:column; align-items:center; margin:20px;
+}
+#avatar-img {
+  width:100px; height:100px; border-radius:50%; border: 3px solid #4B0082; 
+  box-shadow: inset 4px 4px 8px #222, inset -4px -4px 8px #666;
+  background:#fff;
+}
+#avatar-title {
+  font-family: 'Vast Shadow', cursive; color:#4B0082; margin-top:10px; font-size:1.2em; text-shadow:2px 2px #666;
+}
+
+#auth-buttons {
+  margin-top:20px; display:flex; gap:15px;
+}
+button {
+  font-family: 'Press Start 2P', cursive;
+  padding:10px 20px; border:none; border-radius:5px; cursor:pointer;
+  background:#222; color:#eee; box-shadow: inset 4px 4px 8px #000, inset -4px -4px 8px #555;
+}
+button:hover { background:#444; }
+
+#auth-form {
+  display: none; margin-top:20px; max-width:400px; width:90%; background:#111; padding:20px; border:2px solid #4B0082; border-radius:10px;
+  box-shadow: inset 4px 4px 8px #222, inset -4px -4px 8px #666;
+  display:flex; flex-direction:column; align-items:center; gap:10px;
+}
+#auth-form input {
+  width:100%; padding:10px; border:2px solid #4B0082; border-radius:5px; background:#222; color:#eee; font-family:'Press Start 2P'; font-size:0.8em;
+  box-shadow: inset 2px 2px 4px #000, inset -2px -2px 4px #555;
+}
+#auth-form button {
+  padding:10px 20px; background:#4B0082; color:#fff; border:none; border-radius:5px; cursor:pointer; font-family:'Press Start 2P';
+  box-shadow: inset 2px 2px 4px #000, inset -2px -2px 4px #555;
+}
+
+#main-content {
+  display:none; margin-top:20px; width:100%; max-width:900px; text-align:center; color:#eee;
+}
+#chat-header { font-size:1.4em; margin-bottom:10px; }
+#loading { margin-bottom:10px; }
+#chat {
+  background:rgba(255,255,255,0.1);
+  padding:20px; border-radius:10px;
+  box-shadow: inset 4px 4px 8px #222, inset -4px -4px 8px #555;
+  font-family:'Press Start 2P'; font-size:0.9em;
+  min-height:100px;
+}
+.menu { margin-top:20px; display:flex; flex-wrap:wrap; justify-content:center; gap:10px; }
+.menu-item {
+  padding:10px 15px; background:#222; border:2px solid #4B0082; border-radius:5px; cursor:pointer; color:#eee;
+  box-shadow: inset 2px 2px 4px #000, inset -2px -2px 4px #555;
+}
+#synopsis {
+  margin-top:20px; max-width:600px; margin:auto; padding:10px; background:#222; border-radius:8px; box-shadow: inset 4px 4px 8px #222, inset -4px -4px 8px #555; color:#eee;
+}
+
+/* Music drawer styles, initially hidden */
+#musicIcon { display:none; position:fixed; bottom:10px; left:10px; z-index:9999; padding:10px 15px; background:#222; color:#eee; border:none; border-radius:5px; cursor:pointer; font-family:'Press Start 2P'; }
+#musicDrawer {
+  display:none; position:fixed; bottom:0; right:-320px; width:300px; height:200px; background:#222; border-top:4px solid #4B0082;
+  box-shadow:0 -2px 10px rgba(0,0,0,0.5); border-radius:10px 10px 0 0; padding:10px; transition:right 0.3s ease; z-index:9999; color:#eee; display:flex; flex-direction:column; align-items:center; justify-content:space-around;
+}
+#musicDrawer.open { right:0; }
+#nowPlaying { margin:10px 0; }
+button#music-toggle { padding:8px 12px; border:none; background:#4B0082; color:#fff; border-radius:5px; cursor:pointer; font-family:'Press Start 2P'; }
+</style>
+</head>
+<body>
+
+<div class="content">
+  <!-- Avatar + title -->
+  <div id="user-avatar">
+    <img id="avatar-img" src="officialsticker.png" alt="User Avatar" />
+    <div id="avatar-title">Punk Zen</div>
+  </div>
+
+  <!-- Auth buttons -->
+  <div id="auth-buttons">
+    <button onclick="showSignUp()">Sign Up</button>
+    <button onclick="showSignIn()">Log In</button>
+  </div>
+
+  <!-- Auth form -->
+  <div id="auth-form">
+    <h2>Welcome to the Punk Tribe</h2>
+    <input type="text" id="signup-username" placeholder="Choose a username" />
+    <input type="email" id="auth-email" placeholder="Email" />
+    <input type="password" id="auth-password" placeholder="Password" />
+    <button onclick="submitAuth()">Submit</button>
+    <button onclick="cancelAuth()">Cancel</button>
+    <div id="signup-message"></div>
+  </div>
+
+  <!-- Main content -->
+  <div id="main-content">
+    <div id="chat-header">Please log in</div>
+    <div id="loading">Loading...</div>
+    <div id="chat"></div>
+    <div class="menu" id="menu"></div>
+    <div id="synopsis"></div>
+  </div>
+</div>
+
+<!-- Music icon, hidden initially -->
+<button id="musicIcon" style="display:none;" onclick="toggleMusic()">Music</button>
+
+<!-- Music drawer, hidden initially -->
+<div id="musicDrawer">
+  <div>Now Playing: <span id="nowPlaying">-</span></div>
+  <button id="music-toggle" onclick="toggleMusic()">Mute</button>
+  <audio id="musicPlayer"></audio>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // Generate shapes
+  const shapesContainer=document.getElementById('shapes');
+  for(let i=0;i<20;i++){
+    const s=document.createElement('div');
+    s.className='shape';
+    s.style.width=(10+Math.random()*30)+'px';
+    s.style.height=s.style.width;
+    s.style.top=Math.random()*100+'%';
+    s.style.left=Math.random()*100+'%';
+    s.style.background='linear-gradient(45deg,#4B0082,#999)';
+    s.style.transform=`rotate(${Math.random()*360}deg)`;
+    s.style.animationDuration=(10+Math.random()*20)+'s';
+    shapesContainer.appendChild(s);
+  }
+
+  // Supabase init
+  const supabaseUrl='https://hwymepujsvfqjkbullaf.supabase.co'; // your URL
+  const supabaseKey='your-api-key'; // your key
+  window.supabase=supabase.createClient(supabaseUrl,supabaseKey);
+
+  window.currentUser=null;
+  window.username=null;
+
+  // Show sign up / sign in
+  window.showSignUp=()=>{ showAuthForm('signup'); }
+  window.showSignIn=()=>{ showAuthForm('signin'); }
+  window.cancelAuth=()=>{ document.getElementById('auth-form').style.display='none'; document.getElementById('auth-buttons').style.display='flex'; }
+
+  function showAuthForm(mode){
+    document.getElementById('auth-form').style.display='flex';
+    document.getElementById('auth-buttons').style.display='none';
+    document.querySelector('#auth-form h2').innerText=mode==='signup' ? 'Sign Up' : 'Log In';
+    document.getElementById('signup-message').innerText='';
+    document.getElementById('signup-username').style.display=mode==='signup'?'block':'none';
+  }
+
+  window.submitAuth=async()=>{
+    const email=document.getElementById('auth-email').value;
+    const password=document.getElementById('auth-password').value;
+    const username=document.getElementById('signup-username').value.trim();
+
+    if(!email||!password){ alert('Enter email and password'); return; }
+    if(!username && document.querySelector('#auth-form h2').innerText==='Sign Up'){ alert('Choose a username'); return; }
+
+    if(document.querySelector('#auth-form h2').innerText==='Sign Up'){
+      // Sign Up
+      const { data, error }=await supabase.auth.signUp({ email, password });
+      if(error){ alert(error.message); return; }
+      const userId=data.user.id;
+      await supabase.from('profiles').upsert({ id:userId, username:username });
+      document.getElementById('signup-message').innerText='Sign-up successful! Please confirm your email.';
+      // Switch to login
+      document.getElementById('auth-buttons').innerHTML='<button onclick="showSignIn()">Log In</button>';
+      document.getElementById('auth-buttons').style.display='flex';
+      document.getElementById('auth-form').style.display='none';
+    } else {
+      // Log in
+      const { data, error }=await supabase.auth.signInWithPassword({ email, password });
+      if(error){ alert(error.message); return; }
+      window.currentUser=data.user;
+      await fetchAndSetUsername();
+      // Show music controls
+      document.getElementById('musicIcon').style.display='block';
+      document.getElementById('musicDrawer').style.display='block';
+      // Show main content
+      document.getElementById('auth-form').style.display='none';
+      document.getElementById('auth-buttons').style.display='none';
+      document.getElementById('main-content').style.display='block';
+      showGreeting();
+    }
+  }
+
+  async function fetchAndSetUsername() {
+    if(!window.currentUser) return;
+    const { data }=await supabase
+      .from('profiles')
+      .select('username')
+      .eq('id', window.currentUser.id)
+      .single();
+    window.username=data?.username || window.currentUser.email;
+  }
+
+  function showGreeting() {
+    if(!window.username) fetchAndSetUsername().then(()=>{ updateGreeting(); });
+    else { updateGreeting(); }
+  }
+
+  function updateGreeting() {
+    document.getElementById('chat-header').innerText=`Welcome, ${window.username}!`;
+    document.getElementById('loading').style.display='none';
+    document.getElementById('chat').innerHTML=`<p>Hello ${window.username}! Welcome to your punky cinema!</p>`;
+  }
+
+  // Menu setup
+  const menuItems=[
+    { title:'ABOUT',link:'https://en.wikipedia.org/wiki/Punk_rock',desc:'Learn about punk' },
+    { title:'MUSIC',link:'https://www.punknews.org/',desc:'Discover punk tunes' },
+    { title:'SHOP',link:'https://punkclothing.com/',desc:'Get punk fashion' },
+    { title:'BLOG',link:'https://punkblog.com/',desc:'Read punk stories' }
+  ];
+  const menuDiv=document.getElementById('menu');
+  menuItems.forEach(i => {
+    const m=document.createElement('div');
+    m.className='menu-item';
+    m.innerText=i.title;
+    m.onclick=()=>{ document.getElementById('synopsis').innerHTML=`<p>${i.desc}</p><a href="${i.link}" target="_blank" style="color:#eee;">Visit</a>`; }
+    menuDiv.appendChild(m);
+  });
+
+  // Atmospheric music playlist
+  const tracks=[
+    'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+    'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+    'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3'
+  ];
+  const musicPlayer=document.getElementById('musicPlayer');
+  const nowPlaying=document.getElementById('nowPlaying');
+  let currentTrack=0;
+  let isPlaying=false;
+
+  // Toggle music
+  window.toggleMusic=()=>{
+    if(isPlaying){ // pause
+      musicPlayer.pause();
+      isPlaying=false;
+      document.getElementById('music-toggle').innerText='Unmute';
+    } else { // play
+      if(currentTrack>=tracks.length) currentTrack=0;
+      musicPlayer.src=tracks[currentTrack];
+      musicPlayer.style.display='block';
+      musicPlayer.play();
+      isPlaying=true;
+      document.getElementById('music-toggle').innerText='Mute';
+    }
+  };
+  musicPlayer.onended=()=>{
+    currentTrack++;
+    if(currentTrack<tracks.length){
+      musicPlayer.src=tracks[currentTrack];
+      musicPlayer.play();
+      document.getElementById('nowPlaying').innerText='Track ' + (currentTrack+1);
+    } else {
+      isPlaying=false;
+      document.getElementById('nowPlaying').innerText='-';
+    }
+  };
+
+});
+</script>
+</body>
+</html>
